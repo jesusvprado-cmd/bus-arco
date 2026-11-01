@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.suso.busarteixo'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.suso.busarteixo'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '0.1'
+    }
+
+    signingConfigs {
+        release {
+            // Clave fija: así las nuevas versiones se instalan encima sin desinstalar.
+            storeFile file('busarteixo.keystore')
+            storePassword 'busarteixo'
+            keyAlias 'busarteixo'
+            keyPassword 'busarteixo'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

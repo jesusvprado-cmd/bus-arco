@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bus Arteixo</title>
+<style>
+  :root {
+    --fs: 22px;
+    --azul: #0B4F8A;
+    --azul2: #1565C0;
+    --verde: #1B7F3B;
+    --naranja: #C25A00;
+    --rojo: #B3261E;
+    --gris: #5F6368;
+    --fondo: #F4F6F9;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: var(--fondo); color: #111;
+    font-family: system-ui, -apple-system, "Roboto", sans-serif; font-size: var(--fs); }
+  body { min-height: 100vh; }
+  .pantalla { display: none; min-height: 100vh; flex-direction: column; }
+  .pantalla.activa { display: flex; }
+
+  header { background: var(--azul); color: #fff; padding: 18px 20px 16px; position: relative; }
+  header .hora { font-size: 3.2em; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  header .fecha { font-size: 1em; opacity: .9; margin-top: 4px; }
+  header .titulo { font-size: 1.35em; font-weight: 800; }
+  header .sub { font-size: .85em; opacity: .9; margin-top: 2px; }
+  .rueda { position: absolute; right: 10px; top: 10px; width: 52px; height: 52px; border-radius: 50%;
+    border: 0; background: rgba(255,255,255,.12); color: #fff; font-size: 26px; }
+
+  .contenido { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .pregunta { font-size: 1.15em; font-weight: 700; color: #333; margin: 4px 4px 0; }
+
+  .viaje { border: 0; border-radius: 22px; color: #fff; text-align: left; padding: 22px 22px;
+    min-height: 150px; display: flex; flex-direction: column; justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18); font: inherit; }
+  .viaje:active { transform: scale(.98); }
+  .viaje .ico { font-size: 1.8em; }
+  .viaje .nom { font-size: 1.6em; font-weight: 800; line-height: 1.1; margin-top: 4px; }
+  .viaje .det { font-size: .8em; opacity: .92; margin-top: 6px; }
+  .viaje.v0 { background: var(--azul2); }
+  .viaje.v1 { background: var(--verde); }
+  .aviso { background: #FFF4E5; border-left: 6px solid var(--naranja); border-radius: 10px; padding: 14px 16px; font-size: .85em; }
+
+  /* Resultados */
+  .grande { background: #fff; border-radius: 22px; padding: 20px; box-shadow: 0 3px 10px rgba(0,0,0,.1); }
+  .grande .etq { font-size: .85em; color: var(--gris); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  .grande .hbus { font-size: 3.6em; font-weight: 900; line-height: 1; margin: 6px 0 4px; }
+  .grande .faltan { font-size: 1.5em; font-weight: 800; }
+  .grande .salir { margin-top: 14px; padding: 14px 16px; border-radius: 14px; font-size: 1.15em; font-weight: 800; }
+  .salir.ok { background: #E7F4EA; color: var(--verde); }
+  .salir.prisa { background: #FDECEA; color: var(--rojo); }
+  .vivo { display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 999px; font-size: .8em; font-weight: 700; }
+  .vivo.si { background: #E7F4EA; color: var(--verde); }
+  .vivo.no { background: #EEF0F3; color: var(--gris); }
+  .vivo.tarde { background: #FFF4E5; color: var(--naranja); }
+  .linea { font-size: .8em; color: #333; margin-top: 10px; }
+  .siguientes { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .siguientes h3 { margin: 0; padding: 14px 18px 6px; font-size: .85em; color: var(--gris); text-transform: uppercase; }
+  .fila { display: flex; align-items: baseline; gap: 14px; padding: 12px 18px; border-top: 1px solid #EEE; }
+  .fila .h { font-size: 1.5em; font-weight: 800; min-width: 3.2em; }
+  .fila .t { font-size: .85em; color: #333; flex: 1; }
+  .fila .t b { color: #111; }
+  .estado { text-align: center; color: var(--gris); padding: 30px 10px; font-size: 1em; }
+  .estado.error { color: var(--rojo); }
+  .boton { border: 0; border-radius: 16px; padding: 18px; font: inherit; font-weight: 800; font-size: 1.05em; }
+  .boton.volver { background: #E3E7ED; color: #111; }
+  .boton.prim { background: var(--azul2); color: #fff; }
+  .boton.sec { background: #fff; color: var(--azul2); border: 2px solid var(--azul2); }
+  .boton.peq { padding: 10px 14px; font-size: .8em; border-radius: 12px; }
+  .pie { font-size: .7em; color: var(--gris); text-align: center; }
+
+  /* Ajustes */
+  .tarjeta { background: #fff; border-radius: 18px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; gap: 10px; font-size: .8em; }
+  .tarjeta h2 { margin: 0; font-size: 1.25em; }
+  .tarjeta label { font-weight: 700; color: #333; }
+  .tarjeta input[type=text], .buscador input { width: 100%; font: inherit; font-size: 1.1em; padding: 12px; border-radius: 10px; border: 2px solid #CCD3DD; }
+  .sel { display: flex; align-items: center; gap: 10px; }
+  .sel .val { flex: 1; padding: 10px 12px; border-radius: 10px; background: #F1F4F8; min-height: 44px; }
+  .sel .val.vacio { color: var(--rojo); }
+  .num { display: flex; align-items: center; gap: 10px; }
+  .num button { width: 52px; height: 52px; border-radius: 12px; border: 0; background: #E3E7ED; font-size: 26px; font-weight: 800; }
+  .num span { min-width: 3em; text-align: center; font-size: 1.3em; font-weight: 800; }
+  .seg { display: flex; gap: 8px; }
+  .seg button { flex: 1; padding: 12px 6px; border-radius: 10px; border: 2px solid #CCD3DD; background: #fff; font: inherit; font-weight: 700; }
+  .seg button.on { border-color: var(--azul2); background: #E8F0FB; color: var(--azul2); }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: flex-end; z-index: 10; }
+  .modal.activa { display: flex; }
+  .hoja { background: #fff; width: 100%; max-height: 92vh; border-radius: 22px 22px 0 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: .85em; }
+  .buscador { display: flex; gap: 8px; }
+  .lista { overflow-y: auto; flex: 1; min-height: 120px; }
+  .item { padding: 14px 10px; border-bottom: 1px solid #EEE; }
+  .item small { color: var(--gris); display: block; }
+  pre.log { white-space: pre-wrap; word-break: break-all; font-size: 11px; background: #111; color: #9FE89F; padding: 10px; border-radius: 10px; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ INICIO ============ -->
+<section id="inicio" class="pantalla activa">
+  <header>
+    <div class="hora" id="reloj">--:--</div>
+    <div class="fecha" id="fecha"></div>
+    <button class="rueda" id="rueda" aria-label="Ajustes">⚙</button>
+  </header>
+  <div class="contenido">
+    <div class="pregunta">¿A dónde vas?</div>
+    <div id="botonesViaje" style="display:flex;flex-direction:column;gap:16px"></div>
+    <div id="avisoConfig" class="aviso" style="display:none">
+      Falta elegir las paradas. Mantén pulsada la rueda ⚙ de arriba unos segundos.
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESULTADO ============ -->
+<section id="resultado" class="pantalla">
+  <header>
+    <div class="titulo" id="resTitulo"></div>
+    <div class="sub" id="resSub"></div>
+  </header>
+  <div class="contenido">
+    <div id="resCuerpo"></div>
+    <button class="boton volver" onclick="irInicio()">⬅ Volver</button>
+    <div class="pie" id="resPie"></div>
+  </div>
+</section>
+
+<!-- ============ AJUSTES ============ -->
+<section id="ajustes" class="pantalla">
+  <header>
+    <div class="titulo">Ajustes</div>
+    <div class="sub">Para configurar una vez. Tu madre no necesita entrar aquí.</div>
+  </header>
+  <div class="contenido" id="ajCuerpo"></div>
+</section>
+
+<!-- ============ REGISTRO ============ -->
+<section id="registro" class="pantalla">
+  <header>
+    <div class="titulo">Registro de pruebas</div>
+    <div class="sub">Lo que contesta la Xunta. Cópialo y pégaselo a Claude si algo falla.</div>
+  </header>
+  <div class="contenido">
+    <div style="display:flex;gap:10px">
+      <button class="boton prim peq" onclick="copiarRegistro()">Copiar todo</button>
+      <button class="boton sec peq" onclick="pruebaCompleta()">Prueba completa</button>
+      <button class="boton sec peq" onclick="LOG.length=0;pintaRegistro()">Borrar</button>
+    </div>
+    <pre class="log" id="logTxt"></pre>
+    <button class="boton volver" onclick="irAjustes()">⬅ Volver</button>
+  </div>
+</section>
+
+<!-- ============ BUSCADOR DE PARADAS ============ -->
+<div class="modal" id="modalBuscar">
+  <div class="hoja">
+    <b id="buscarTitulo">Buscar parada</b>
+    <div class="buscador">
+      <input id="buscarTxt" type="text" placeholder="Ej.: Arteixo, Entrexardíns, estación…" autocomplete="off">
+      <button class="boton prim peq" onclick="buscar()">Buscar</button>
+    </div>
+    <div class="lista" id="buscarLista"></div>
+    <button class="boton volver peq" onclick="cerrarBuscar()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ===================== Configuración ===================== */
+const API = "https://tpgal-ws.xunta.gal/tpgal_ws/rest";          // servidor de la app oficial de la Xunta
+const RT  = "https://sae-its.xunta.gal:8019/SiriHubWs.asmx";      // tiempo real (SIRI)
+const VERSION = "0.1";
+
+const DIAS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+/* ===================== Puente con Android ===================== */
+const NATIVO = typeof window.Android !== "undefined";
+const pendientes = {};
+let secuencia = 0;
+
+window.__httpCb = function (id, estado, texto) {
+  const r = pendientes[id];
+  if (r) { delete pendientes[id]; r({ estado: estado, texto: texto }); }
+};
+
+function http(metodo, url, cuerpo, tipo, soap) {
+  return new Promise(function (resolver) {
+    const id = "r" + (++secuencia);
+    pendientes[id] = resolver;
+    if (NATIVO) {
+      Android.http(id, metodo, url, cuerpo || "", tipo || "", soap || "");
+    } else {
+      // Solo para probar en un navegador de ordenador
+      const h = {};
+      if (tipo) h["Content-Type"] = tipo;
+      if (soap) h["soapaction"] = soap;
+      fetch(url, { method: metodo, body: cuerpo || undefined, headers: h })
+        .then(function (r) { return r.text().then(function (t) { window.__httpCb(id, r.status, t); }); })
+        .catch(function (e) { window.__httpCb(id, -1, String(e)); });
+    }
+    setTimeout(function () {
+      if (pendientes[id]) { delete pendientes[id]; resolver({ estado: -2, texto: "Sin respuesta en 40 s" }); }
+    }, 40000);
+  });
+}
+
+function guardar(k, v) {
+  const s = JSON.stringify(v);
+  if (NATIVO) Android.save(k, s); else { try { localStorage.setItem(k, s); } catch (e) {} }
+}
+function cargar(k, def) {
+  let s = "";
+  if (NATIVO) s = Android.load(k); else { try { s = localStorage.getItem(k) || ""; } catch (e) {} }
+  if (!s) return def;
+  try { return JSON.parse(s); } catch (e) { return def; }
+}
+function aviso(t) { if (NATIVO) Android.toast(t); else console.log("AVISO:", t); }
+
+/* ===================== Registro de pruebas ===================== */
+const LOG = [];
+function registrar(titulo, texto) {
+  LOG.push("[" + hhmmss(new Date()) + "] " + titulo + "\n" + String(texto).slice(0, 3000));
+  while (LOG.length > 40) LOG.shift();
+}
+function pintaRegistro() {
+  document.getElementById("logTxt").textContent =
+    "Bus Arteixo " + VERSION + "\n" + JSON.stringify(cfg, null, 1) + "\n\n" + LOG.slice().reverse().join("\n\n");
+}
+function copiarRegistro() {
+  const t = document.getElementById("logTxt").textContent;
+  if (NATIVO) Android.copy(t); else navigator.clipboard && navigator.clipboard.writeText(t);
+}
+
+/* ===================== Utilidades de tiempo ===================== */
+function dos(n) { return (n < 10 ? "0" : "") + n; }
+function hhmm(d) { return dos(d.getHours()) + ":" + dos(d.getMinutes()); }
+function hhmmss(d) { return hhmm(d) + ":" + dos(d.getSeconds()); }
+function ddmmyyyy(d) { return dos(d.getDate()) + "/" + dos(d.getMonth() + 1) + "/" + d.getFullYear(); }
+function claveDia(d) { return d.getFullYear() + "-" + dos(d.getMonth() + 1) + "-" + dos(d.getDate()); }
+function medianoche(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function masDias(d, n) { const x = medianoche(d); x.setDate(x.getDate() + n); return x; }
+/* "10:35" + día base -> Date */
+function aFecha(hm, base) {
+  const p = String(hm || "").split(":");
+  if (p.length < 2) return null;
+  const d = medianoche(base);
+  d.setHours(parseInt(p[0], 10), parseInt(p[1], 10), 0, 0);
+  return d;
+}
+/* "PT5M", "-PT2M30S", "PT1H3M" -> minutos */
+function duracionMin(s) {
+  if (!s || typeof s !== "string") return null;
+  const m = s.match(/^(-)?P(?:\d+D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  if (!m) return null;
+  const v = (parseInt(m[2] || 0, 10) * 60) + parseInt(m[3] || 0, 10) + (parseFloat(m[4] || 0) / 60);
+  return m[1] ? -v : v;
+}
+function fechaValida(s) {
+  if (!s || typeof s !== "string" || s.indexOf("0001-") === 0) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) || d.getFullYear() < 2000 ? null : d;
+}
+
+/* ===================== Ajustes guardados ===================== */
+const cfgDefecto = {
+  letra: 1,
+  viajes: [
+    { nombre: "Ir a Coruña", icono: "🚌", origen: null, destino: null, andar: 5 },
+    { nombre: "Volver a Arteixo", icono: "🏠", origen: null, destino: null, andar: 0 }
+  ]
+};
+let cfg = cargar("cfg", null) || JSON.parse(JSON.stringify(cfgDefecto));
+function guardaCfg() { guardar("cfg", cfg); aplicaLetra(); }
+function aplicaLetra() {
+  const tam = [20, 22, 26][cfg.letra] || 22;
+  document.documentElement.style.setProperty("--fs", tam + "px");
+}
+function viajeListo(v) { return v && v.origen && v.destino; }
+
+/* ===================== Llamadas a la Xunta ===================== */
+function resultados(j) {
+  if (j && !Array.isArray(j) && j.results !== undefined) return j.results;
+  return j;
+}
+async function pedirJSON(ruta, params) {
+  const qs = Object.keys(params || {}).filter(function (k) { return params[k] !== null && params[k] !== undefined; })
+    .map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]); }).join("&");
+  const url = API + ruta + (qs ? "?" + qs : "");
+  const r = await http("GET", url);
+  registrar("GET " + url, "estado " + r.estado + "\n" + r.texto);
+  if (r.estado < 200 || r.estado > 299) throw new Error("La Xunta respondió " + r.estado + (r.estado < 0 ? " (" + r.texto + ")" : ""));
+  try { return JSON.parse(r.texto); }
+  catch (e) { throw new Error("Respuesta rara de la Xunta (no es JSON)"); }
+}
+
+/* Buscar paradas y concellos por nombre */
+async function buscarParadas(texto) {
+  const j = await pedirJSON("/busstops/autocomplete", { text: texto, num_results: 30 });
+  const arr = resultados(j) || [];
+  return arr.map(function (e) {
+    return { id: e.id, tipo: e.type || "busstop", nombre: e.text || e.name || ("Parada " + e.id), grupo: e.group_type };
+  });
+}
+
+/* Horario de un día entre origen y destino (en caché 30 min, y guardado por si no hay internet) */
+const cacheDia = {};
+async function horarioDia(v, dia, offset) {
+  const clave = v.origen.tipo + v.origen.id + ">" + v.destino.tipo + v.destino.id + "@" + claveDia(dia);
+  const c = cacheDia[clave];
+  if (c && Date.now() - c.t < 30 * 60000) return { lista: c.lista, guardado: false };
+  try {
+    const j = await pedirJSON("/service/search", {
+      origin_id: v.origen.id, origin_type: v.origen.tipo,
+      destination_id: v.destino.id, destination_type: v.destino.tipo,
+      date: medianoche(dia).getTime(),
+      page_number: 1, page_size: 2147483647
+    });
+    const arr = resultados(j) || [];
+    const lista = arr.map(function (e) {
+      const o = e.origin || {}, d = e.destination || {};
+      return {
+        id: e.id, linea: e.line_name || e.expedition_name || "", exped: e.expedition_name || "",
+        operador: e.operator || "", sale: o.time, paradaSale: o.busstop || v.origen.nombre,
+        llega: d.time, paradaLlega: d.busstop || v.destino.nombre, dia: offset
+      };
+    }).filter(function (e) { return e.sale; })
+      .sort(function (a, b) { return a.sale < b.sale ? -1 : a.sale > b.sale ? 1 : 0; });
+    cacheDia[clave] = { t: Date.now(), lista: lista };
+    guardar("h_" + clave, lista);
+    return { lista: lista, guardado: false };
+  } catch (e) {
+    const viejo = cargar("h_" + clave, null);
+    if (viejo) return { lista: viejo, guardado: true };
+    throw e;
+  }
+}
+
+/* Código interno (sitme) de la parada para el tiempo real + relación expedición -> código */
+async function datosParada(v) {
+  if (v.origen.tipo !== "busstop") return null;
+  const j = await pedirJSON("/public/expedition/from", { stopId: v.origen.id, tripDate: ddmmyyyy(new Date()) + " " + hhmm(new Date()) });
+  const mapa = {};
+  (j.results || []).forEach(function (e) {
+    if (e.expedition_id !== undefined) mapa[e.expedition_id] = { sitme: e.expedition_sitme_id, pasa: e.passing_time };
+  });
+  return { sitme: j.id_sitme, mapa: mapa };
+}
+
+function hijo(el, nombre) {
+  for (let i = 0; i < el.children.length; i++) if (el.children[i].localName === nombre) return el.children[i];
+  return null;
+}
+function txt(el, ruta) {
+  let x = el;
+  const partes = ruta.split("/");
+  for (let i = 0; i < partes.length && x; i++) x = hijo(x, partes[i]);
+  return x ? x.textContent.trim() : "";
+}
+
+/* Tiempo real: qué buses van a pasar por la parada y cuándo */
+async function tiempoReal(sitme) {
+  const ahora = new Date();
+  const ts = claveDia(ahora) + "T" + hhmmss(ahora);
+  const sobre =
+    '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:tem="http://tempuri.org/" xmlns:siri="http://www.siri.org.uk/siri">' +
+    '<soap:Header/><soap:Body><tem:GetStopMonitoring><tem:request>' +
+    '<ServiceRequestInfo><siri:RequestTimestamp>' + ts + '</siri:RequestTimestamp>' +
+    '<siri:AccountId>app-tpgal</siri:AccountId><siri:AccountKey>_*tpgal*_</siri:AccountKey></ServiceRequestInfo>' +
+    '<Request version="2.0"><siri:RequestTimestamp>' + ts + '</siri:RequestTimestamp>' +
+    '<siri:MonitoringRef>' + sitme + '</siri:MonitoringRef></Request>' +
+    '</tem:request></tem:GetStopMonitoring></soap:Body></soap:Envelope>';
+  const r = await http("POST", RT, sobre, "text/xml", "http://tempuri.org/GetStopMonitoring");
+  registrar("TIEMPO REAL parada " + sitme, "estado " + r.estado + "\n" + r.texto);
+  if (r.estado < 200 || r.estado > 299) throw new Error("tiempo real " + r.estado);
+  const xml = new DOMParser().parseFromString(r.texto, "text/xml");
+  const viajes = xml.getElementsByTagNameNS("*", "MonitoredVehicleJourney");
+  const salida = [];
+  for (let i = 0; i < viajes.length; i++) {
+    const j = viajes[i];
+    const previsto = fechaValida(txt(j, "MonitoredCall/AimedDepartureTime")) || fechaValida(txt(j, "MonitoredCall/AimedArrivalTime"));
+    let esperado = fechaValida(txt(j, "MonitoredCall/ExpectedDepartureTime")) || fechaValida(txt(j, "MonitoredCall/ExpectedArrivalTime"));
+    const retraso = duracionMin(txt(j, "Delay"));
+    if (!esperado && previsto && retraso !== null) esperado = new Date(previsto.getTime() + retraso * 60000);
+    salida.push({
+      curso: txt(j, "CourseOfJourneyRef"),
+      linea: txt(j, "PublishedLineName"),
+      vigilado: txt(j, "Monitored") === "true",
+      tieneGPS: !!hijo(j, "VehicleLocation"),
+      previsto: previsto, esperado: esperado, retraso: retraso,
+      distancia: txt(j, "MonitoredCall/DistanceFromStop")
+    });
+  }
+  return salida;
+}
+
+/* ===================== Pantallas ===================== */
+let pantallaActual = "inicio";
+function mostrar(id) {
+  document.querySelectorAll(".pantalla").forEach(function (p) { p.classList.toggle("activa", p.id === id); });
+  pantallaActual = id;
+  window.scrollTo(0, 0);
+}
+function irInicio() { pararRefresco(); mostrar("inicio"); pintaInicio(); }
+function irAjustes() { pararRefresco(); mostrar("ajustes"); pintaAjustes(); }
+
+window.onBack = function () {
+  if (document.getElementById("modalBuscar").classList.contains("activa")) { cerrarBuscar(); return true; }
+  if (pantallaActual === "registro") { irAjustes(); return true; }
+  if (pantallaActual !== "inicio") { irInicio(); return true; }
+  return false;
+};
+window.onAppResume = function () {
+  tic();
+  if (pantallaActual === "resultado" && viajeActual !== null) cargarViaje(viajeActual, true);
+};
+
+function tic() {
+  const d = new Date();
+  document.getElementById("reloj").textContent = hhmm(d);
+  const dia = DIAS[d.getDay()];
+  document.getElementById("fecha").textContent = dia.charAt(0).toUpperCase() + dia.slice(1) + ", " + d.getDate() + " de " + MESES[d.getMonth()];
+  if (pantallaActual === "resultado" && ultimo) pintaResultado();
+}
+
+function pintaInicio() {
+  const cont = document.getElementById("botonesViaje");
+  cont.innerHTML = "";
+  let falta = false;
+  cfg.viajes.forEach(function (v, i) {
+    const b = document.createElement("button");
+    b.className = "viaje v" + i;
+    const listo = viajeListo(v);
+    if (!listo) falta = true;
+    b.innerHTML = '<div class="ico">' + esc(v.icono || "🚌") + '</div><div class="nom">' + esc(v.nombre) + '</div>' +
+      '<div class="det">' + (listo ? esc("Desde " + v.origen.nombre) : "Sin configurar") + '</div>';
+    b.onclick = function () { listo ? abrirViaje(i) : aviso("Primero hay que elegir las paradas en Ajustes"); };
+    cont.appendChild(b);
+  });
+  document.getElementById("avisoConfig").style.display = falta ? "block" : "none";
+}
+
+/* Rueda de ajustes: hay que mantenerla pulsada 2 segundos */
+(function () {
+  const r = document.getElementById("rueda");
+  let t = null;
+  function empieza(e) { e.preventDefault(); t = setTimeout(function () { t = null; irAjustes(); }, 2000); }
+  function acaba() { if (t) { clearTimeout(t); t = null; aviso("Mantén pulsado para entrar en Ajustes"); } }
+  r.addEventListener("touchstart", empieza, { passive: false });
+  r.addEventListener("touchend", acaba);
+  r.addEventListener("mousedown", empieza);
+  r.addEventListener("mouseup", acaba);
+})();
+
+/* ===================== Resultado de un viaje ===================== */
+let viajeActual = null, ultimo = null, refresco = null;
+function pararRefresco() { if (refresco) { clearInterval(refresco); refresco = null; } }
+
+function abrirViaje(i) {
+  viajeActual = i; ultimo = null;
+  const v = cfg.viajes[i];
+  document.getElementById("resTitulo").textContent = (v.icono || "🚌") + " " + v.nombre;
+  document.getElementById("resSub").textContent = "Desde " + v.origen.nombre + " hasta " + v.destino.nombre;
+  document.getElementById("resCuerpo").innerHTML = '<div class="estado">Buscando autobuses…</div>';
+  document.getElementById("resPie").textContent = "";
+  mostrar("resultado");
+  cargarViaje(i, false);
+  pararRefresco();
+  refresco = setInterval(function () { cargarViaje(i, true); }, 45000);
+}
+
+async function cargarViaje(i, silencioso) {
+  const v = cfg.viajes[i];
+  const ahora = new Date();
+  let buses = [], guardado = false, errorHorario = null;
+  try {
+    const hoy = await horarioDia(v, ahora, 0);
+    guardado = hoy.guardado;
+    buses = hoy.lista.map(function (b) { return Object.assign({}, b, { fecha: aFecha(b.sale, ahora) }); })
+      .filter(function (b) { return b.fecha && b.fecha.getTime() > ahora.getTime() - 3 * 60000; });
+    if (buses.length < 4) {
+      try {
+        const man = await horarioDia(v, masDias(ahora, 1), 1);
+        buses = buses.concat(man.lista.map(function (b) { return Object.assign({}, b, { fecha: aFecha(b.sale, masDias(ahora, 1)) }); }));
+      } catch (e) { /* mañana no es imprescindible */ }
+    }
+  } catch (e) { errorHorario = e; }
+
+  if (errorHorario && !buses.length) {
+    if (!silencioso || !ultimo) {
+      document.getElementById("resCuerpo").innerHTML =
+        '<div class="grande"><div class="estado error">No se pudo consultar el horario.<br><small>' + esc(errorHorario.message) +
+        '</small><br><br>Comprueba que hay internet y vuelve a intentarlo.</div></div>' +
+        '<button class="boton prim" style="margin-top:16px;width:100%" onclick="abrirViaje(' + i + ')">Reintentar</button>';
+    }
+    return;
+  }
+
+  // Tiempo real (si falla, seguimos con el horario)
+  let vivo = null, rtError = null;
+  try {
+    let p = cargar("parada_" + v.origen.tipo + v.origen.id, null);
+    if (!p || Date.now() - (p.t || 0) > 6 * 3600000) {
+      p = await datosParada(v);
+      if (p) { p.t = Date.now(); guardar("parada_" + v.origen.tipo + v.origen.id, p); }
+    }
+    if (p && p.sitme) vivo = { lista: await tiempoReal(p.sitme), mapa: p.mapa || {} };
+  } catch (e) { rtError = e.message; }
+
+  if (vivo) {
+    buses.forEach(function (b) {
+      if (b.dia !== 0) return;
+      const m = vivo.mapa[b.id];
+      let r = null;
+      if (m && m.sitme !== undefined) r = vivo.lista.find(function (x) { return String(x.curso) === String(m.sitme); });
+      if (!r) r = vivo.lista.find(function (x) { return x.previsto && hhmm(x.previsto) === b.sale; });
+      if (r) b.vivo = r;
+    });
+  }
+  ultimo = { buses: buses, guardado: guardado, rtError: rtError, hayVivo: !!vivo, hora: new Date() };
+  if (viajeActual === i && pantallaActual === "resultado") pintaResultado();
+}
+
+function horaBuena(b) { return (b.vivo && b.vivo.esperado) ? b.vivo.esperado : b.fecha; }
+
+function textoFaltan(min) {
+  if (min <= -1) return "Acaba de pasar";
+  if (min < 1) return "¡Está llegando!";
+  if (min < 60) return "Faltan " + Math.floor(min) + " min";
+  const h = Math.floor(min / 60), m = Math.floor(min % 60);
+  return "Faltan " + h + " h" + (m ? " " + m + " min" : "");
+}
+
+function chipVivo(b) {
+  if (!b.vivo) return '<span class="vivo no">Horario previsto</span>';
+  const r = b.vivo.retraso;
+  if (b.vivo.esperado) {
+    const dif = Math.round((b.vivo.esperado.getTime() - b.fecha.getTime()) / 60000);
+    if (dif >= 2) return '<span class="vivo tarde">● En directo: viene ' + dif + ' min tarde</span>';
+    if (dif <= -2) return '<span class="vivo tarde">● En directo: viene ' + (-dif) + ' min antes</span>';
+    return '<span class="vivo si">● En directo: viene a su hora</span>';
+  }
+  if (r !== null && r !== undefined && Math.abs(r) >= 2) return '<span class="vivo tarde">● En directo: ' + Math.round(r) + ' min de retraso</span>';
+  return '<span class="vivo si">● En directo</span>';
+}
+
+function pintaResultado() {
+  const v = cfg.viajes[viajeActual];
+  const u = ultimo;
+  if (!u) return;
+  const ahora = new Date();
+  const lista = u.buses.filter(function (b) { return horaBuena(b).getTime() > ahora.getTime() - 60000; })
+    .sort(function (a, b) { return horaBuena(a) - horaBuena(b); });
+  let h = "";
+  if (!lista.length) {
+    h = '<div class="grande"><div class="estado">No hay más autobuses para hoy ni mañana.</div></div>';
+  } else {
+    const b = lista[0];
+    const hb = horaBuena(b);
+    const min = (hb.getTime() - ahora.getTime()) / 60000;
+    h += '<div class="grande">';
+    h += '<div class="etq">' + (b.dia ? "Primer bus de mañana" : "Próximo autobús") + '</div>';
+    h += '<div class="hbus">' + hhmm(hb) + '</div>';
+    if (b.vivo && b.vivo.esperado && hhmm(hb) !== b.sale) h += '<div class="linea">Hora en el horario: ' + esc(b.sale) + '</div>';
+    h += '<div class="faltan">' + (b.dia ? "Mañana" : textoFaltan(min)) + '</div>';
+    h += chipVivo(b);
+    if (!b.dia && v.andar > 0) {
+      const salir = new Date(hb.getTime() - v.andar * 60000);
+      const margen = (salir.getTime() - ahora.getTime()) / 60000;
+      if (margen > 0) h += '<div class="salir ok">🚶 Sal de casa a las ' + hhmm(salir) + '</div>';
+      else h += '<div class="salir prisa">🏃 ¡Date prisa! Tendrías que estar saliendo ya</div>';
+    }
+    h += '<div class="linea">Parada: <b>' + esc(b.paradaSale) + '</b><br>Llega a ' + esc(b.paradaLlega) +
+      (b.llega ? ' a las <b>' + esc(b.llega) + '</b>' : '') + '</div>';
+    if (b.linea) h += '<div class="linea" style="color:#5F6368">' + esc(b.linea) + '</div>';
+    h += '</div>';
+
+    if (lista.length > 1) {
+      h += '<div class="siguientes" style="margin-top:16px"><h3>Después</h3>';
+      lista.slice(1, 6).forEach(function (x) {
+        h += '<div class="fila"><div class="h">' + hhmm(horaBuena(x)) + '</div><div class="t">' +
+          (x.dia ? "<b>Mañana</b> · " : "<b>" + textoFaltan((horaBuena(x).getTime() - ahora.getTime()) / 60000).replace("Faltan ", "en ") + "</b> · ") +
+          "llega " + esc(x.llega || "?") + (x.vivo ? ' · <span style="color:#1B7F3B">● directo</span>' : "") + '</div></div>';
+      });
+      h += '</div>';
+    }
+  }
+  document.getElementById("resCuerpo").innerHTML = h;
+  let pie = "Actualizado a las " + hhmm(u.hora) + " · se actualiza solo";
+  if (u.guardado) pie = "Sin internet: horario guardado de antes · " + pie;
+  if (u.rtError) pie += " · sin datos en directo";
+  document.getElementById("resPie").textContent = pie;
+}
+
+/* ===================== Ajustes ===================== */
+function pintaAjustes() {
+  const c = document.getElementById("ajCuerpo");
+  let h = "";
+  cfg.viajes.forEach(function (v, i) {
+    h += '<div class="tarjeta"><h2>Botón ' + (i + 1) + '</h2>' +
+      '<label>Nombre del botón</label><input type="text" value="' + escA(v.nombre) + '" oninput="cfg.viajes[' + i + '].nombre=this.value;guardaCfg()">' +
+      '<label>Parada donde coge el bus</label>' +
+      '<div class="sel"><div class="val' + (v.origen ? "" : " vacio") + '">' + esc(v.origen ? v.origen.nombre : "Sin elegir") +
+      '</div><button class="boton sec peq" onclick="abrirBuscar(' + i + ',\'origen\')">Elegir</button></div>' +
+      '<label>A dónde va (parada o concello)</label>' +
+      '<div class="sel"><div class="val' + (v.destino ? "" : " vacio") + '">' + esc(v.destino ? v.destino.nombre : "Sin elegir") +
+      '</div><button class="boton sec peq" onclick="abrirBuscar(' + i + ',\'destino\')">Elegir</button></div>' +
+      '<label>Minutos andando de casa a la parada</label>' +
+      '<div class="num"><button onclick="andar(' + i + ',-1)">−</button><span>' + v.andar + '</span><button onclick="andar(' + i + ',1)">+</button></div>' +
+      '<small style="color:#5F6368">Con 0 no se muestra el aviso «Sal de casa a las…».</small>' +
+      (viajeListo(v) ? '<button class="boton prim peq" onclick="abrirViaje(' + i + ')">Probar este botón</button>' : '') +
+      '</div>';
+  });
+  h += '<button class="boton sec" onclick="vueltaAlReves()">⇄ Poner el botón 2 como el 1 al revés</button>';
+  h += '<div class="tarjeta"><h2>Tamaño de letra</h2><div class="seg">' +
+    ['Normal', 'Grande', 'Muy grande'].map(function (n, k) {
+      return '<button class="' + (cfg.letra === k ? "on" : "") + '" onclick="cfg.letra=' + k + ';guardaCfg();pintaAjustes()">' + n + '</button>';
+    }).join("") + '</div></div>';
+  h += '<button class="boton sec" onclick="mostrar(\'registro\');pintaRegistro()">🔧 Registro de pruebas</button>';
+  h += '<button class="boton volver" onclick="irInicio()">⬅ Listo</button>';
+  h += '<div class="pie">Bus Arteixo ' + VERSION + ' · datos de la Xunta de Galicia (bus.gal)</div>';
+  c.innerHTML = h;
+}
+function andar(i, d) { const v = cfg.viajes[i]; v.andar = Math.max(0, Math.min(60, (v.andar || 0) + d)); guardaCfg(); pintaAjustes(); }
+function vueltaAlReves() {
+  const a = cfg.viajes[0], b = cfg.viajes[1];
+  if (!viajeListo(a)) { aviso("Primero configura el botón 1"); return; }
+  if (a.destino.tipo !== "busstop") {
+    aviso("El destino del botón 1 es un concello entero: elige a mano la parada de vuelta en el botón 2");
+    b.destino = a.origen;
+  } else {
+    b.origen = a.destino; b.destino = a.origen;
+  }
+  guardaCfg(); pintaAjustes();
+}
+
+/* Buscador de paradas */
+let buscarPara = null;
+function abrirBuscar(i, campo) {
+  buscarPara = { i: i, campo: campo };
+  document.getElementById("buscarTitulo").textContent = campo === "origen" ? "¿En qué parada coge el bus?" : "¿A dónde va?";
+  document.getElementById("buscarLista").innerHTML = '<div class="estado" style="font-size:.9em">Escribe parte del nombre y pulsa Buscar.<br>Ej.: «Arteixo», «Meicende», «estación», «Entrexardíns».</div>';
+  document.getElementById("modalBuscar").classList.add("activa");
+  const t = document.getElementById("buscarTxt");
+  t.value = "";
+  setTimeout(function () { t.focus(); }, 100);
+}
+function cerrarBuscar() { document.getElementById("modalBuscar").classList.remove("activa"); }
+document.getElementById("buscarTxt").addEventListener("keydown", function (e) { if (e.key === "Enter") buscar(); });
+
+const NOMBRE_TIPO = { busstop: "Parada", municipality: "Concello entero", town: "Concello entero", council: "Concello entero", parish: "Parroquia", locality: "Lugar" };
+
+async function buscar() {
+  const q = document.getElementById("buscarTxt").value.trim();
+  const lista = document.getElementById("buscarLista");
+  if (q.length < 2) { aviso("Escribe al menos 2 letras"); return; }
+  lista.innerHTML = '<div class="estado">Buscando…</div>';
+  try {
+    const r = await buscarParadas(q);
+    if (!r.length) { lista.innerHTML = '<div class="estado">No sale nada. Prueba con otra palabra.</div>'; return; }
+    lista.innerHTML = "";
+    r.forEach(function (p) {
+      const d = document.createElement("div");
+      d.className = "item";
+      d.innerHTML = esc(p.nombre) + '<small>' + esc(NOMBRE_TIPO[p.tipo] || p.tipo) + ' · código ' + esc(String(p.id)) + '</small>';
+      d.onclick = function () {
+        cfg.viajes[buscarPara.i][buscarPara.campo] = { id: p.id, tipo: p.tipo, nombre: p.nombre };
+        guardaCfg(); cerrarBuscar(); pintaAjustes();
+      };
+      lista.appendChild(d);
+    });
+  } catch (e) {
+    lista.innerHTML = '<div class="estado error">No se pudo buscar: ' + esc(e.message) + '<br><small>Mira el Registro de pruebas.</small></div>';
+  }
+}
+
+/* Prueba completa para el registro */
+async function pruebaCompleta() {
+  registrar("PRUEBA COMPLETA", "Empezando…");
+  try { const r = await buscarParadas("Arteixo"); registrar("Búsqueda «Arteixo»", r.length + " resultados: " + JSON.stringify(r.slice(0, 8))); }
+  catch (e) { registrar("Búsqueda «Arteixo» FALLÓ", e.message); }
+  for (let i = 0; i < cfg.viajes.length; i++) {
+    const v = cfg.viajes[i];
+    if (!viajeListo(v)) { registrar("Botón " + (i + 1), "sin configurar"); continue; }
+    try { const h = await horarioDia(v, new Date(), 0); registrar("Horario botón " + (i + 1), h.lista.length + " buses hoy: " + h.lista.map(function (b) { return b.sale; }).join(" ")); }
+    catch (e) { registrar("Horario botón " + (i + 1) + " FALLÓ", e.message); }
+    try {
+      const p = await datosParada(v);
+      registrar("Parada botón " + (i + 1), JSON.stringify(p && { sitme: p.sitme, expediciones: Object.keys(p.mapa).length }));
+      if (p && p.sitme) { const rt = await tiempoReal(p.sitme); registrar("Directo botón " + (i + 1), rt.length + " buses: " + JSON.stringify(rt.slice(0, 5))); }
+    } catch (e) { registrar("Directo botón " + (i + 1) + " FALLÓ", e.message); }
+  }
+  pintaRegistro();
+}
+
+/* ===================== Varios ===================== */
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function escA(s) { return esc(s); }
+
+aplicaLetra();
+pintaInicio();
+tic();
+setInterval(tic, 15000);
+</script>
+</body>
+</html>
